@@ -16,11 +16,7 @@ import (
 
 const dbTimeout = time.Second * 3
 
-var db *sql.DB
-
-func New(dbPool *sql.DB) Models {
-	db = dbPool
-
+func New() Models {
 	return Models{
 		User:  User{},
 		Token: Token{},
@@ -44,7 +40,7 @@ type User struct {
 	Token     Token     `json:"token"`
 }
 
-func (u *User) GetAll() ([]*User, error) {
+func (u *User) GetAll(db *sql.DB) ([]*User, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
@@ -86,7 +82,7 @@ func (u *User) GetAll() ([]*User, error) {
 	return users, nil
 }
 
-func (u *User) GetByEmail(email string) (*User, error) {
+func (u *User) GetByEmail(email string, db *sql.DB) (*User, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
@@ -112,7 +108,7 @@ func (u *User) GetByEmail(email string) (*User, error) {
 	return &user, nil
 }
 
-func (u *User) GetOne(id int) (*User, error) {
+func (u *User) GetOne(id int, db *sql.DB) (*User, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
@@ -138,7 +134,7 @@ func (u *User) GetOne(id int) (*User, error) {
 	return &user, nil
 }
 
-func (u *User) Update() error {
+func (u *User) Update(db *sql.DB) error {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
@@ -168,7 +164,7 @@ func (u *User) Update() error {
 	return nil
 }
 
-func (u *User) Delete() error {
+func (u *User) Delete(db *sql.DB) error {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
@@ -182,7 +178,7 @@ func (u *User) Delete() error {
 	return nil
 }
 
-func (u *User) DeleteByID(id int) error {
+func (u *User) DeleteByID(id int, db *sql.DB) error {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
@@ -196,7 +192,7 @@ func (u *User) DeleteByID(id int) error {
 	return nil
 }
 
-func (u *User) Insert(user User) (int, error) {
+func (u *User) Insert(user User, db *sql.DB) (int, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
@@ -228,7 +224,7 @@ func (u *User) Insert(user User) (int, error) {
 	return newID, nil
 }
 
-func (u *User) ResetPassword(password string) error {
+func (u *User) ResetPassword(password string, db *sql.DB) error {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
@@ -246,7 +242,7 @@ func (u *User) ResetPassword(password string) error {
 	return nil
 }
 
-func (u *User) PasswordMatches(plainText string) (bool, error) {
+func (u *User) PasswordMatches(plainText string, db *sql.DB) (bool, error) {
 	err := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(plainText))
 	if err != nil {
 		switch {
@@ -271,7 +267,7 @@ type Token struct {
 	Expiry    time.Time `json:"expiry"`
 }
 
-func (t *Token) GetByToken(plainText string) (*Token, error) {
+func (t *Token) GetByToken(plainText string, db *sql.DB) (*Token, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
@@ -299,7 +295,7 @@ func (t *Token) GetByToken(plainText string) (*Token, error) {
 	return &token, err
 }
 
-func (t *Token) GetUserForToken(token Token) (*User, error) {
+func (t *Token) GetUserForToken(token Token, db *sql.DB) (*User, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
@@ -345,7 +341,7 @@ func (t *Token) GenerateToken(userID int, ttl time.Duration) (*Token, error) {
 	return token, nil
 }
 
-func (t *Token) AuthenticateToken(r *http.Request) (*User, error) {
+func (t *Token) AuthenticateToken(r *http.Request, db *sql.DB) (*User, error) {
 	authorizationHeader := r.Header.Get("Authorization")
 	if authorizationHeader == "" {
 		return nil, errors.New("no authorization header received")
@@ -362,7 +358,7 @@ func (t *Token) AuthenticateToken(r *http.Request) (*User, error) {
 		return nil, errors.New("token wrong size")
 	}
 
-	tkn, err := t.GetByToken(token)
+	tkn, err := t.GetByToken(token, db)
 	if err != nil {
 		return nil, errors.New("no matching token found")
 	}
@@ -370,7 +366,7 @@ func (t *Token) AuthenticateToken(r *http.Request) (*User, error) {
 		return nil, errors.New("expired token")
 	}
 
-	user, err := t.GetUserForToken(*tkn)
+	user, err := t.GetUserForToken(*tkn, db)
 	if err != nil {
 		return nil, errors.New("no matching user found")
 	}
@@ -382,7 +378,7 @@ func (t *Token) AuthenticateToken(r *http.Request) (*User, error) {
 	return user, nil
 }
 
-func (t *Token) Insert(token Token, u User) error {
+func (t *Token) Insert(token Token, u User, db *sql.DB) error {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
@@ -417,7 +413,7 @@ func (t *Token) Insert(token Token, u User) error {
 	return nil
 }
 
-func (t *Token) DeleteByToken(plainText string) error {
+func (t *Token) DeleteByToken(plainText string, db *sql.DB) error {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
@@ -431,7 +427,7 @@ func (t *Token) DeleteByToken(plainText string) error {
 	return nil
 }
 
-func (t *Token) DeleteTokensForUser(id int) error {
+func (t *Token) DeleteTokensForUser(id int, db *sql.DB) error {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
@@ -444,13 +440,13 @@ func (t *Token) DeleteTokensForUser(id int) error {
 	return nil
 }
 
-func (t *Token) ValidToken(plainText string) (bool, error) {
-	token, err := t.GetByToken(plainText)
+func (t *Token) ValidToken(plainText string, db *sql.DB) (bool, error) {
+	token, err := t.GetByToken(plainText, db)
 	if err != nil {
 		return false, errors.New("no matching token found")
 	}
 
-	_, err = t.GetUserForToken(*token)
+	_, err = t.GetUserForToken(*token, db)
 	if err != nil {
 		return false, errors.New("no matching token found")
 	}

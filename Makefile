@@ -5,7 +5,7 @@ ENV=development
 ## build: Build binary
 build:
 	@echo "Building back end..."
-	go build -o ${BINARY_NAME} ./cmd/api/
+	go build -o ${BINARY_NAME} ./
 	@echo "Binary built!"
 
 ## run: builds and runs the application

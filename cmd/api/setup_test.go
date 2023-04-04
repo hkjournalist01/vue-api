@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"log"
@@ -22,7 +22,8 @@ func TestMain(m *testing.M) {
 		config:      config{},
 		infoLog:     log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime),
 		errorLog:    log.New(os.Stdout, "Error\t", log.Ldate|log.Ltime),
-		models:      data.New(testDB),
+		models:      data.New(),
+		db:          testDB,
 		environment: "development",
 	}
 

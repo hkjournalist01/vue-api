@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"encoding/base64"
@@ -44,14 +44,14 @@ func (app *application) Login(w http.ResponseWriter, r *http.Request) {
 	app.infoLog.Println(creds.UserName, creds.PassWord)
 
 	// look up the user by email
-	user, err := app.models.User.GetByEmail(creds.UserName)
+	user, err := app.models.User.GetByEmail(creds.UserName, app.db)
 	if err != nil {
 		app.errorJSON(w, errors.New("invalid username/password"))
 		return
 	}
 
 	// validate the user's password
-	validPassword, err := user.PasswordMatches(creds.PassWord)
+	validPassword, err := user.PasswordMatches(creds.PassWord, app.db)
 	if err != nil || !validPassword {
 		app.errorJSON(w, errors.New("invalid username/password"))
 		return
@@ -70,7 +70,7 @@ func (app *application) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// save it to the database
-	err = app.models.Token.Insert(*token, *user)
+	err = app.models.Token.Insert(*token, *user, app.db)
 	if err != nil {
 		app.errorJSON(w, err)
 		return
@@ -102,7 +102,7 @@ func (app *application) Logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = app.models.Token.DeleteByToken(requestPayload.Token)
+	err = app.models.Token.DeleteByToken(requestPayload.Token, app.db)
 	if err != nil {
 		app.errorJSON(w, errors.New("invalid json"))
 		return
@@ -118,7 +118,7 @@ func (app *application) Logout(w http.ResponseWriter, r *http.Request) {
 
 func (app *application) AllUsers(w http.ResponseWriter, r *http.Request) {
 	var users data.User
-	all, err := users.GetAll()
+	all, err := users.GetAll(app.db)
 	if err != nil {
 		app.errorLog.Println(err)
 		return
@@ -141,13 +141,13 @@ func (app *application) EditUser(w http.ResponseWriter, r *http.Request) {
 
 	if user.ID == 0 {
 		// add user
-		if _, err := app.models.User.Insert(user); err != nil {
+		if _, err := app.models.User.Insert(user, app.db); err != nil {
 			app.errorJSON(w, err)
 			return
 		}
 	} else {
 		// editing user
-		u, err := app.models.User.GetOne(user.ID)
+		u, err := app.models.User.GetOne(user.ID, app.db)
 		if err != nil {
 			app.errorJSON(w, err)
 			return
@@ -158,13 +158,13 @@ func (app *application) EditUser(w http.ResponseWriter, r *http.Request) {
 		u.LastName = user.LastName
 		u.Active = user.Active
 
-		if err := u.Update(); err != nil {
+		if err := u.Update(app.db); err != nil {
 			app.errorJSON(w, err)
 			return
 		}
 
 		if user.Password != "" {
-			err := u.ResetPassword(user.Password)
+			err := u.ResetPassword(user.Password, app.db)
 			if err != nil {
 				app.errorJSON(w, err)
 				return
@@ -187,7 +187,7 @@ func (app *application) GetUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := app.models.User.GetOne(userID)
+	user, err := app.models.User.GetOne(userID, app.db)
 	if err != nil {
 		app.errorJSON(w, err)
 		return
@@ -207,7 +207,7 @@ func (app *application) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = app.models.User.DeleteByID(requestPayload.ID)
+	err = app.models.User.DeleteByID(requestPayload.ID, app.db)
 
 	if err != nil {
 		app.errorJSON(w, err)
@@ -230,21 +230,21 @@ func (app *application) LogUserOutAndSetInactive(w http.ResponseWriter, r *http.
 		return
 	}
 
-	user, err := app.models.User.GetOne(userID)
+	user, err := app.models.User.GetOne(userID, app.db)
 	if err != nil {
 		app.errorJSON(w, err)
 		return
 	}
 
 	user.Active = 0
-	err = user.Update()
+	err = user.Update(app.db)
 	if err != nil {
 		app.errorJSON(w, err)
 		return
 	}
 
 	// delete tokens for user
-	err = app.models.Token.DeleteTokensForUser(userID)
+	err = app.models.Token.DeleteTokensForUser(userID, app.db)
 	if err != nil {
 		app.errorJSON(w, err)
 		return
@@ -270,7 +270,7 @@ func (app *application) ValidateToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	valid := false
-	valid, _ = app.models.Token.ValidToken(requestPayload.Token)
+	valid, _ = app.models.Token.ValidToken(requestPayload.Token, app.db)
 
 	payload := jsonResponse{
 		Error: false,
